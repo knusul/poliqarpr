@@ -32,7 +32,7 @@ describe Poliqarp::Client do
   describe "(with 'sample' corpus)" do
     before(:all) do
       @client = Poliqarp::Client.new("TEST")
-      @client.open_corpus("/home/fox/local/poliqarp/2.sample.30/sample")
+      @client.open_corpus(:default)
     end
 
     after(:all) do
@@ -94,12 +94,12 @@ describe Poliqarp::Client do
       @client.find("[base=kot]")[0].to_s.should match(/\bkot\b/)
     end
 
-    it "should allow to find 'Afrodyta [] od" do
-      @client.find("Afrodyta [] od").size.should_not == 0
+    it "should allow to find 'jak [] nie" do
+      @client.find("jak [] nie").size.should_not == 0
     end
 
-    it "should contain 'Afrodyta .* od' for 'Afrodyta [] od' query " do
-      @client.find("Afrodyta [] od")[0].to_s.should match(/Afrodyta .* od/)
+    it "should contain 'jak [] nie" do
+      @client.find("jak [] nie")[0].to_s.should match(/jak .* nie/)
     end
 
     it "should return collection for find without index specified" do
@@ -110,8 +110,8 @@ describe Poliqarp::Client do
       @client.count("kot").should_not == nil
     end
 
-    it "should return 188 occurences of 'kot'" do
-      @client.count("kot").should == 188
+    it "should return occurences for 'kot'" do
+      @client.count("kot").should_not == 0
     end
 
     it "should allow to find first occurence of 'kot'" do
@@ -129,7 +129,7 @@ describe Poliqarp::Client do
 
     describe("(with index specified in find)") do
       before(:each) do 
-        @result = @client.find("nachalny",:index => 0)
+        @result = @client.find("marny", :index => 1)
       end
 
       it "should not return collection for find" do
@@ -140,9 +140,6 @@ describe Poliqarp::Client do
         @result.should_not == nil
       end
 
-      it "should fetch the same excerpt as in find without index " do
-        @result.to_s.should == @client.find("nachalny")[0].to_s
-      end
     end
 
     describe("(with lemmata flags set to true)") do 
