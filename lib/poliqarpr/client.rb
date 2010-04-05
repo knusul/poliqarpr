@@ -444,7 +444,7 @@ private
         # the result count might be not exact!
         result_count = talk("BUFFER-STATE").split(" ")[2].to_i
         talk("STATUS") rescue break
-      end while result_count < answer_offset
+      end while result_count <= answer_offset
       @last_result = "OK #{result_count}"
       result_count
     end
