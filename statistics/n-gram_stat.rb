@@ -10,14 +10,18 @@ describe Poliqarp::Client do
       @client.close
     end
   
-    it "should return sample 2-grams statistics" do
-      @client.open_corpus(:default)
-	  @client.find("kota ma").each{| result| 
-	  puts result 
-	  }
-	  @client.find("po to").each{| result| 
-	  puts result 
-	  }
+    it "should print sample 2-grams statistics" do
+	@client.open_corpus("C:/dev/2.sample.30/sample")
+	["kota ma", "po to","taki jak","kto to","oby nie" ].each{|form |
+	puts "Form \"#{form}\" appears #{@client.find(form).size} times"
+	}
+    end
+    it "should print sample interwords connections" do
+	@client.open_corpus(:default)
+	["poszedł em","bronił am"].each{|form |
+	puts "Form \"#{form}\" appears #{@client.find(form).size} times"
+	
+	}
     end
   end
 end
