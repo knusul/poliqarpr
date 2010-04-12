@@ -18,7 +18,7 @@ describe Poliqarp::Client do
     end
     it "should print sample interwords connections" do
 	@client.open_corpus(:default)
-	["poszedł em","bronił am"].each{|form |
+	["poszedł em","bronił am", "pokonał em"].each{|form |
 	puts "Form \"#{form}\" appears #{@client.find(form).size} times"
 	
 	}
