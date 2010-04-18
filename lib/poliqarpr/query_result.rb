@@ -69,5 +69,10 @@ module Poliqarp
       @excerpts.size
     end
 
+    # Returns the number of excerpts stored in this page (query result)
+    def size
+      @excerpts.size
+    end
+
   end
 end

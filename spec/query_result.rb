@@ -60,8 +60,16 @@ describe Poliqarp::QueryResult do
       @result = @client.find("kot")
     end
 
+    it "should not be empty" do
+      @result[2,3].empty?.should_not == true
+    end
+
     it "should have size == 6" do 
       @result.size.should == 6
+    end
+
+    it "should return 3 excerpts" do
+      @result[2,3].size.should == 3
     end
 
     it "should have page set to 1" do
