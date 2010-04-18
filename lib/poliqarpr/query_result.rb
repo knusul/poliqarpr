@@ -35,9 +35,9 @@ module Poliqarp
       end
     end
 
-    # Returns excerpt with given index.
-    def [](index)
-      @excerpts[index]
+    # Returns excerpt starting with given index.
+    def [](index, length=1)
+      @excerpts[index, length]
     end
 
     # Two excerpts are equal iff their page number, page count,
@@ -69,9 +69,9 @@ module Poliqarp
       @excerpts.size
     end
 
-    # Returns the number of excerpts stored in this page (query result)
-    def size
-      @excerpts.size
+    # Return true if none excerpt is stored
+    def empty?
+      @excerpts.empty?
     end
 
   end
