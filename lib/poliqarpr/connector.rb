@@ -31,8 +31,10 @@ module Poliqarp
       17 =>   "Invalid result range",
       18 =>   "Incorrect session option",
       19 =>   "Invalid session option value",
-      20 =>   "Invalid sorting criteria"
+      20 =>   "Invalid sorting criteria",
+      25 =>   "No error"
     }
+    ERRORS.default = "Unknown error"
 
     UTF8 = "utf-8"
 
@@ -41,7 +43,8 @@ module Poliqarp
       @message_queue = Queue.new
       @socket_mutex = Mutex.new
       @loop_mutex = Mutex.new
-      @debug = debug
+      @debug = 1#debug
+      @extended_debug = 1
     end
 
     # Opens connection with poliqarp server which runs 
@@ -68,7 +71,7 @@ module Poliqarp
     def send(message, mode, &handler)
       puts "send #{mode} #{message}" if @debug
       if ruby19?
-        massage = message.encode(UTF8)
+        message = message.encode(UTF8)
       end
       @socket.puts(message)
       if mode == :async
@@ -82,7 +85,7 @@ module Poliqarp
     # containing the error description is returned.
     def read_message
       message = @message_queue.shift
-      if message =~ /^ERR/
+      if message =~ /^ERR /
         code = message.match(/\d+/)[0].to_i
         raise JobInProgress.new() if code == 15
         raise RuntimeError.new("Poliqarp Error: "+ERRORS[code])
@@ -107,6 +110,7 @@ private
       if ruby19?
         result.force_encoding(UTF8)
       end
+      #puts "RECEIVED RESULT: #{result}" if @debug
       msg = result[2..-2]
       if result =~ /^M/
         receive_async(msg)
@@ -117,7 +121,7 @@ private
     end
 
     def receive_sync(message)
-      puts "receive sync: #{message}" if @debug
+      puts "receive sync: #{message}" if @extended_debug
       @message_queue << message
     end
 

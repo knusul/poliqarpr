@@ -48,11 +48,13 @@ module Poliqarp
     def new_session(port=4567)
       close if @session
       @connector.open("localhost",port)
-      talk("MAKE-SESSION #{@session_name}")
-      talk("BUFFER-RESIZE #{@buffer_size}")
+      @session_id = talk("MAKE-SESSION #{@session_name}").split[1]
+      puts("session id: #{@session_id}")
+      buffer_resize(@buffer_size)
       @session = true
       self.tags = {}
       self.lemmata = {}
+      return @session_id
     end
 
     # Closes the opened session.
@@ -283,6 +285,61 @@ module Poliqarp
         end
       end
       result
+    end
+
+    # Suspends session
+    def suspend_session
+      talk("SUSPEND-SESSION")
+    end
+
+    # Resume session
+    def resume_session
+      talk("RESUME-SESSION #{@session_id} #{@session_name}")
+    end
+
+    # Returns the description of last error
+    def last_error
+      talk('GET-LAST-ERROR')
+    end
+
+    # Returns state of the buffer
+    def buffer_state
+      talk("BUFFER-STATE")
+    end
+
+    # Sets the notification interval. It should be a positive number
+    def notification_interval=(value)
+      talk("SET notification-interval #{value}")
+    end
+
+    # Sets the disambiguity option of the query's result.
+    # value should be of logical or numerical {0, 1} type.
+    def disamb=(value)
+      if value && value != 0
+        talk("SET disamb 1")
+      else
+        talk("SET disamb 0")
+      end
+    end
+
+    # Creates alias to attribute(s)
+    def create_alias(name, value)
+      talk("CREATE-ALIAS #{name} #{value}")
+    end
+
+    # Deletes given alias
+    def delete_alias(name)
+      talk("DELETE-ALIAS #{name}")
+    end
+
+    #TODO
+    def get_aliases
+      talk("GET-ALIASES", :sync)
+    end
+
+    # Changes capacity of the buffer.
+    def buffer_resize(size)
+      talk("BUFFER-RESIZE #{size}")
     end
 
 protected

@@ -1,5 +1,5 @@
 #vim:encoding=utf-8
-require 'lib/poliqarpr'
+require File.join(File.dirname(__FILE__), '..','lib','poliqarpr')
 
 describe Poliqarp::Client do
   describe "(general test)" do
@@ -12,7 +12,7 @@ describe Poliqarp::Client do
     end
   
     it "should allow to open corpus" do
-      @client.open_corpus("/home/fox/local/poliqarp/2.sample.30/sample")
+      @client.open_corpus("I:/Poliqarp/2.sample.30/sample")
     end
   
     it "should allow to open :default corpus" do
@@ -100,6 +100,14 @@ describe Poliqarp::Client do
 
     it "should contain 'jak [] nie" do
       @client.find("jak [] nie")[0].to_s.should match(/jak .* nie/)
+    end
+
+    it "should allow to find sets of chars" do
+      @client.find('"kot[au]"').size.should == 6
+    end
+
+    it "should allow to find sets of chars2" do
+      @client.find('[pos=subst]{6,} within s meta author=Kowalski').size.should_not == nil
     end
 
     it "should return collection for find without index specified" do
