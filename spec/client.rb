@@ -170,8 +170,11 @@ describe Poliqarp::Client do
     end
 
     it "should define and delete alias" do
+       aliases_number = @client.get_aliases.size
        @client.create_alias('alias', 'm1|m2')
+       aliases_number.should == @client.get_aliases.size - 1
        @client.delete_alias('alias')
+       aliases_number.should == @client.get_aliases.size
     end
 
     describe("(with index specified in find)") do

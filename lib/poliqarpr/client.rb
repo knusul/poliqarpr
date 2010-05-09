@@ -302,6 +302,12 @@ module Poliqarp
       talk('GET-LAST-ERROR')
     end
 
+    #TODO
+    # Resume session
+    def column_types
+      talk("GET-COLUMN-TYPES")
+    end
+
     # Returns state of the buffer
     def buffer_state
       talk("BUFFER-STATE")
@@ -332,12 +338,22 @@ module Poliqarp
       talk("DELETE-ALIAS #{name}")
     end
 
-    #TODO
-    def get_aliases
-      talk("GET-ALIASES", :sync)
+    # Gets list of defined aliases
+    # * +handler+ if given, the method returns immediately,
+    #   and the answer is sent to the handler. In this case
+    #   the result returned by get_aliases should be IGNORED!
+    def get_aliases(&handler)
+        if handler.nil?
+          real_handler = lambda { |msg| @answer_queue.push msg }
+        else
+          real_handler = handler
+        end
+
+        number = talk("GET-ALIASES", :async, &real_handler).split(" ")[1].to_i
+        read_aliases(number)
     end
 
-    # Changes capacity of the buffer.
+    # Changes capacity of the buffer
     def buffer_resize(size)
       talk("BUFFER-RESIZE #{size}")
     end
@@ -472,6 +488,16 @@ protected
       @connector.read_message
     end
 
+    # Reads defined aliases and create hashtable with aliases as the keys
+    # and real names as the values
+    def read_aliases(number)
+      aliases = {}
+      number.times do |alias_index|
+        aliases[read_word] = read_word
+      end
+      aliases
+    end
+
 private 
     def do_wait
       loop {
@@ -492,7 +518,7 @@ private
       value.is_a?(Fixnum) && value > 0
     end
 
-    def make_async_query(query,answer_offset) 
+    def make_async_query(query,answer_offset)
       # the handler is empty, since we access the result count through 
       # BUFFER-STATE call
       make_query(query){|msg| }
