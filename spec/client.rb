@@ -135,6 +135,45 @@ describe Poliqarp::Client do
       @client.find("kita").should == @client.find("kita")
     end
 
+    it "should print description of the last error" do
+      (proc do
+        @client.find("ko[ta]")
+      end).should raise_error(RuntimeError)
+      @client.last_error.to_str.include?(']').should == true
+    end
+
+    it "should suspended and resume session" do
+      @client.suspend_session
+      @client.resume_session
+      @client.find("kota").should_not raise_error(RuntimeError)
+    end
+
+    it "should return state of the buffer" do
+       @client.buffer_state[0..8].eql?("OK 500000").should == true
+    end
+
+    it "should resize buffer" do
+      @client.buffer_resize(550000)
+      @client.buffer_state.split[1].eql?("550000").should == true
+    end
+
+    it "should get metadata" do
+      @client.metadata("zestaw", "0").to_s.split("/")[-1].eql?("1965").should == true
+    end
+
+    it "should allow to set notification interval" do
+      @client.notification_interval = 100
+    end
+
+    it "should allow to set disambiguity" do
+      @client.disamb = 1
+    end
+
+    it "should define and delete alias" do
+       @client.create_alias('alias', 'm1|m2')
+       @client.delete_alias('alias')
+    end
+
     describe("(with index specified in find)") do
       before(:each) do 
         @result = @client.find("marny", :index => 1)
