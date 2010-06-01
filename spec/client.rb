@@ -177,6 +177,19 @@ describe Poliqarp::Client do
        aliases_number.should == @client.get_aliases.size
     end
 
+    it "should sort results" do
+       res = @client.find("kota")
+       res[0].to_s.should match(/^,/)
+       res[-1].to_s.should_not match(/^,/)
+       res = @client.find("kota",  {:sorting => Poliqarp::SortingCriteria::A_TERGO_LEFT_CONTEXT})
+       res[0].to_s.should_not match(/^,/)
+       res[-1].to_s.should match(/^,/)
+    end
+
+    it "should get column types" do
+      @client.column_types.should match(/([A-Z]+<>:)*[A-Z]+<>$/)
+    end
+
     describe("(with index specified in find)") do
       before(:each) do 
         @result = @client.find("marny", :index => 1)

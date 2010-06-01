@@ -155,7 +155,7 @@ module Poliqarp
       else
         real_handler = handler || lambda{|msg| @answer_queue.push msg }
         talk("OPEN #{path}", :async, &real_handler)
-        do_wait if handler.nil?
+        do_wait(@answer_queue) if handler.nil?
       end
     end
 
@@ -237,6 +237,8 @@ module Poliqarp
     #   is present. Defaults to 0.
     # * +page_index+ the index of the page of results (the first page has index 1, not 0). 
     #   It is ignored if the +index+ option is present. Defaults to 1.
+    # * +sorting+ the criteria of results sorting order defined as constant
+    #   from class +SortingCriteria+. Defaults to +SortingCriteria::A_FRONTE_LEFT_CONTEXT+.
     def find(query,options={})
       if options[:index]
         find_one(query, options[:index])
@@ -302,10 +304,9 @@ module Poliqarp
       talk('GET-LAST-ERROR')
     end
 
-    #TODO
-    # Resume session
+    # Retrieves the types of columns
     def column_types
-      talk("GET-COLUMN-TYPES")
+      talk("GET-COLUMN-TYPES")[3..-1]
     end
 
     # Returns state of the buffer
@@ -358,6 +359,11 @@ module Poliqarp
       talk("BUFFER-RESIZE #{size}")
     end
 
+    # TODO
+    def get_job_status
+      talk("GET-JOB-STATUS")
+    end
+
 protected
     # Sends a message directly to the server
     # * +msg+ the message to send
@@ -393,6 +399,9 @@ protected
         result_count / page_size + (result_count % page_size > 0 ? 1 : 0)
 
       result = QueryResult.new(page_index, page_count,page_size,self,query)
+
+      sort_results(options)
+
       if answers_limit > 0
         talk("GET-RESULTS #{answer_offset} #{answer_offset + answers_limit - 1}") 
         answers_limit.times do |answer_index|
@@ -478,7 +487,7 @@ protected
           talk("MAKE-QUERY #{query}")
         end
         talk("RUN-QUERY #{@buffer_size}", :async, &real_handler) 
-        @last_result = do_wait if handler.nil?
+        @last_result = do_wait(@answer_queue) if handler.nil?
       end
       @last_result
     end
@@ -498,14 +507,35 @@ protected
       aliases
     end
 
+    # *Asynchronous* Sends the sorting command to the server and waits
+    #  for operation completion
+    def sort_results(options)
+      @sort_answer_queue = Queue.new
+      sort_real_handler = lambda { |msg| @sort_answer_queue.push msg }
+      if options[:sorting]
+        if @debug
+          puts "SORT #{options[:sorting]}"
+        end
+        talk("SORT #{options[:sorting]}", :async, &sort_real_handler)
+      else
+        if @debug
+          puts "SORT #{SortingCriteria::A_FRONTE_LEFT_CONTEXT}"
+        end
+        talk("SORT #{SortingCriteria::A_FRONTE_LEFT_CONTEXT}", :async, &sort_real_handler)
+      end
+      
+      do_wait(@sort_answer_queue) if sort_real_handler.nil?
+      puts @sort_answer_queue.shift
+    end
+
 private 
-    def do_wait
+    def do_wait(queue)
       loop {
         status = talk("STATUS") rescue break
         puts "STATUS: #{status}" if @debug
         sleep 0.3
       }
-      @answer_queue.shift
+      queue.shift
     end
 
     def set_all_flags
