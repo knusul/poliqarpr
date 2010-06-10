@@ -30,6 +30,7 @@ module Poliqarp
       @connector = Connector.new(debug)
       @answer_queue = Queue.new
       new_session
+      get_version
     end
 
     # A hint about installation of default corpus gem
@@ -50,7 +51,7 @@ module Poliqarp
       @connector.open("localhost",port)
       @session_id = talk("MAKE-SESSION #{@session_name}").split[1]
       puts("session id: #{@session_id}")
-      buffer_resize(@buffer_size)
+      resize_buffer(@buffer_size)
       @session = true
       self.tags = {}
       self.lemmata = {}
@@ -75,7 +76,7 @@ module Poliqarp
     # matched segment(s).
     def left_context=(value)
       if correct_context_value?(value) 
-        result = talk("SET left-context-width #{value}")
+        result = talk("SET-OPTION left-context-width #{value}")
         @left_context = value if result =~ /^R OK/
       else
         raise "Invalid argument: #{value}. It must be fixnum greater than 0."
@@ -87,9 +88,23 @@ module Poliqarp
     # The size of the right short context is the number 
     # of segments displayed in the found excerpts right to the
     # matched segment(s).
+    def wide_context=(value)
+      if correct_context_value?(value)
+        result = talk("SET-OPTION right-context-width #{value}")
+        @right_context = value if result =~ /^R OK/
+      else
+        raise "Invalid argument: #{value}. It must be fixnum greater than 0."
+      end
+    end
+
+    # Sets the size of the wide context. It must be > 0
+    #
+    # The size of the wide context is the number
+    # of segments displayed in the found excerpts in the vicinity of the
+    # matched segment(s).
     def right_context=(value)
       if correct_context_value?(value)
-        result = talk("SET right-context-width #{value}")
+        result = talk("SET-OPTION wide-context-width #{value}")
         @right_context = value if result =~ /^R OK/
       else
         raise "Invalid argument: #{value}. It must be fixnum greater than 0."
@@ -117,7 +132,7 @@ module Poliqarp
       GROUPS.each do |flag|
         flags << (options[flag] ? "1" : "0")
         end
-      talk("SET retrieve-tags #{flags}")
+      talk("SET-OPTION retrieve-tags #{flags}")
     end
 
     # Sets the lemmatas' flags. There are four groups of segments 
@@ -141,7 +156,7 @@ module Poliqarp
       GROUPS.each do |flag|
         flags << (options[flag] ? "1" : "0")
         end
-      talk("SET retrieve-lemmata #{flags}")
+      talk("SET-OPTION retrieve-lemmata #{flags}")
     end
 
     # *Asynchronous* Opens the corpus given as +path+. To open the default
@@ -154,7 +169,7 @@ module Poliqarp
         open_corpus(DEFAULT_CORPUS, &handler)
       else
         real_handler = handler || lambda{|msg| @answer_queue.push msg }
-        talk("OPEN #{path}", :async, &real_handler)
+        talk("OPEN-CORPUS #{path}", :async, &real_handler)
         do_wait(@answer_queue) if handler.nil?
       end
     end
@@ -164,11 +179,22 @@ module Poliqarp
       :pong if talk("PING") =~ /PONG/
     end
 
+    # <b>DEPRECATED:</b> Please use <tt>get_version</tt> instead.
     # Returns server version
     def version 
-      talk("VERSION")
+      ret = talk("VERSION")
+      @version = convert_version(ret.sub(/ .*/, ''))
+      return ret
     end
 
+    # Returns server version
+    def get_version
+      ret = talk("GET-VERSION")
+      @version = convert_version(ret.sub(/ .*/, ''))
+      return ret
+    end
+
+    # <b>DEPRECATED:</b> Please use <tt>get_stats</tt> instead.
     # Returns corpus statistics:
     # * +:segment_tokens+ the number of segments in the corpus 
     #   (two segments which look exactly the same are counted separately)
@@ -196,9 +222,47 @@ module Poliqarp
       stats
     end
 
-    # TODO
+    # * +:segment_tokens+ the number of segments in the corpus
+    #   (two segments which look exactly the same are counted separately)
+    # * +:segment_types+ the number of segment types in the corpus
+    #   (two segments which look exactly the same are counted as one type)
+    # * +:lemmata+ the number of lemmata (lexemes) types
+    #   (all forms of inflected word, e.g. 'kot', 'kotu', ...
+    #   are treated as one "word" -- lemmata)
+    # * +:tags+ the number of different grammar tags (each combination
+    #   of atomic tags is treated as different "tag")
+    def get_stats
+      stats = {}
+      talk("GET-CORPUS-STATS").split.each_with_index do |value, index|
+        case index
+        when 1
+          stats[:segment_tokens] = value.to_i
+        when 2
+          stats[:segment_types] = value.to_i
+        when 3
+          stats[:lemmata] = value.to_i
+        when 4
+          stats[:tags] = value.to_i
+        end
+      end
+      stats
+    end
+
+    # Returns the set of metadata types defined for the corpus.
     def metadata_types
-      raise "Not implemented"
+      result = {}
+      answer = talk("GET-METADATA-TYPES")
+      count = answer.split(" ")[1].to_i
+      count.times do |index|
+        meta_type = read_word
+        type = meta_type.gsub(/ .*/,"").to_sym
+        value = meta_type[2..-1]
+        unless value.nil?
+          result[type] ||= []
+          result[type] << value
+        end
+      end
+      result
     end
 
     # Returns the tag-set used in the corpus.
@@ -273,10 +337,10 @@ module Poliqarp
 
     # Returns the metadata of the excerpt which is identified by
     # given (query, index) pair.
-    def metadata(query, index)
+    def get_metadata(query, index)
       make_query(query)
       result = {}
-      answer = talk("METADATA #{index}")
+      answer = talk("GET-METADATA #{index}")
       count = answer.split(" ")[1].to_i
       count.times do |index|
         type = read_word.gsub(/[^a-zA-Z]/,"").to_sym
@@ -294,7 +358,7 @@ module Poliqarp
       talk("SUSPEND-SESSION")
     end
 
-    # Resume session
+    # Resumes session
     def resume_session
       talk("RESUME-SESSION #{@session_id} #{@session_name}")
     end
@@ -310,22 +374,22 @@ module Poliqarp
     end
 
     # Returns state of the buffer
-    def buffer_state
-      talk("BUFFER-STATE")
+    def get_buffer_state
+      talk("GET-BUFFER-STATE")
     end
 
     # Sets the notification interval. It should be a positive number
     def notification_interval=(value)
-      talk("SET notification-interval #{value}")
+      talk("SET-OPTION notification-interval #{value}")
     end
 
-    # Sets the disambiguity option of the query's result.
-    # value should be of logical or numerical {0, 1} type.
+    # Sets the disambiguity interpretations of a segment.
+    # * +value+ should be of logical or numerical {0, 1} type.
     def disamb=(value)
       if value && value != 0
-        talk("SET disamb 1")
+        talk("SET-OPTION disamb 1")
       else
-        talk("SET disamb 0")
+        talk("SET-OPTION disamb 0")
       end
     end
 
@@ -355,14 +419,85 @@ module Poliqarp
     end
 
     # Changes capacity of the buffer
-    def buffer_resize(size)
+    def resize_buffer(size)
       talk("BUFFER-RESIZE #{size}")
     end
 
-    # TODO
+    # Retrieves status of active job (query)
     def get_job_status
-      talk("GET-JOB-STATUS")
+      if convert_version("1.3.7") <= @version
+        talk("GET-JOB-STATUS")
+      else
+        raise "Incompatible version: Function not available"
+      end
     end
+
+    # Sets the query's flags. There are four groups of segments
+    # which the flags apply for:
+    # * +left_context+
+    # * +left_match+
+    # * +right_match+
+    # * +right_context+
+    # TODO description
+    # You can pass :all to turn on flags for all groups
+    # New in version 1.3.3.
+    def query_flags=(options={})
+      if convert_version("1.3.3") <= @version
+        options = set_all_flags if options == :all
+        @tag_flags = options
+        flags = ""
+        GROUPS.each do |flag|
+          flags << (options[flag] ? "1" : "0")
+        end
+        talk("SET-OPTION query-flags #{flags}")
+      else
+        raise "Incompatible version: Function not available"
+      end
+    end
+
+    # TODO retrieve-id
+    def retrieve_id
+      raise "Not implemented"
+    end
+
+    # Sets the rewrite flags. There are four groups of segments
+    # which the flags apply for:
+    # * +left_context+
+    # * +left_match+
+    # * +right_match+
+    # * +right_context+
+    #
+    # You can pass :all to turn on flags for all groups
+    # New in version 1.3.3.
+    def rewrite=(options={})
+      if convert_version("1.3.3") <= @version
+        options = set_all_flags if options == :all
+        @tag_flags = options
+        flags = ""
+        GROUPS.each do |flag|
+          flags << (options[flag] ? "1" : "0")
+        end
+        talk("SET-OPTION rewrite #{flags}")
+      else
+        raise "Incompatible version: Function not available"
+      end
+    end
+
+    # Sets the random sample option, which forces server to generate
+    # random response for the query.
+    # New in version 1.3.7.
+    def random_sample=(value)
+      if convert_version("1.3.7") <= @version
+        if value && value != 0
+          talk("SET-OPTION random-sample 1")
+        else
+          talk("SET-OPTION random-sample 0")
+        end
+      else
+        raise "Incompatible version: Function not available"
+      end
+    end
+
 
 protected
     # Sends a message directly to the server
@@ -514,14 +649,14 @@ protected
       sort_real_handler = lambda { |msg| @sort_answer_queue.push msg }
       if options[:sorting]
         if @debug
-          puts "SORT #{options[:sorting]}"
+          puts "SORT-RESULTS #{options[:sorting]}"
         end
-        talk("SORT #{options[:sorting]}", :async, &sort_real_handler)
+        talk("SORT-RESULTS #{options[:sorting]}", :async, &sort_real_handler)
       else
         if @debug
-          puts "SORT #{SortingCriteria::A_FRONTE_LEFT_CONTEXT}"
+          puts "SORT-RESULTS #{SortingCriteria::A_FRONTE_LEFT_CONTEXT}"
         end
-        talk("SORT #{SortingCriteria::A_FRONTE_LEFT_CONTEXT}", :async, &sort_real_handler)
+        talk("SORT-RESULTS #{SortingCriteria::A_FRONTE_LEFT_CONTEXT}", :async, &sort_real_handler)
       end
       
       do_wait(@sort_answer_queue) if sort_real_handler.nil?
@@ -532,7 +667,7 @@ private
     def do_wait(queue)
       loop {
         status = talk("STATUS") rescue break
-        puts "STATUS: #{status}" if @debug
+        puts "GET-JOB-STATUS: #{status}" if @debug
         sleep 0.3
       }
       queue.shift
@@ -555,11 +690,26 @@ private
       result_count = 0 
       begin 
         # the result count might be not exact!
-        result_count = talk("BUFFER-STATE").split(" ")[2].to_i
-        talk("STATUS") rescue break
+        result_count = talk("GET-BUFFER-STATE").split(" ")[2].to_i
+        talk("GET-STATUS") rescue break
       end while result_count <= answer_offset
       @last_result = "OK #{result_count}"
       result_count
+    end
+
+    # Converts version of the serven given as dotted string into the number
+    # value which may then be compared by testing functions compatibility
+    def convert_version(version)
+      version = version.split(".")
+      version_number = ""
+      version.each {|level|
+        version_segment = level
+        (3 - level.length).times do
+          version_segment = '0' + version_segment
+        end
+        version_number = version_number + version_segment
+      }
+      version_number.to_i
     end
   end 
 end

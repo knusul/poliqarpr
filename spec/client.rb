@@ -23,8 +23,12 @@ describe Poliqarp::Client do
       @client.ping.should == :pong
     end
 
-    it "should return server version" do
+    it "should return server version (depracated)" do
       @client.version.should_not == nil
+    end
+
+    it "should return server version" do
+      @client.get_version.should_not == nil
     end
 
   end
@@ -69,6 +73,15 @@ describe Poliqarp::Client do
       (lambda do 
         @client.left_context = 0
       end).should raise_error(RuntimeError)
+    end
+
+    it "should return corpus statistics (depracated)" do
+      stats = @client.get_stats
+      stats.size.should == 4
+      [:segment_tokens, :segment_types, :lemmata, :tags].each do |type|
+        stats[type].should_not == nil
+        stats[type].should > 0
+      end
     end
 
     it "should return corpus statistics" do
@@ -149,24 +162,20 @@ describe Poliqarp::Client do
     end
 
     it "should return state of the buffer" do
-       @client.buffer_state[0..8].eql?("OK 500000").should == true
+       @client.get_buffer_state[0..8].eql?("OK 500000").should == true
     end
 
     it "should resize buffer" do
-      @client.buffer_resize(550000)
-      @client.buffer_state.split[1].eql?("550000").should == true
+      @client.resize_buffer(550000)
+      @client.get_buffer_state.split[1].eql?("550000").should == true
     end
 
     it "should get metadata" do
-      @client.metadata("zestaw", "0").to_s.split("/")[-1].eql?("1965").should == true
+      @client.get_metadata("zestaw", "0").to_s.split("/")[-1].eql?("1965").should == true
     end
 
     it "should allow to set notification interval" do
       @client.notification_interval = 100
-    end
-
-    it "should allow to set disambiguity" do
-      @client.disamb = 1
     end
 
     it "should define and delete alias" do
@@ -189,9 +198,19 @@ describe Poliqarp::Client do
     it "should get column types" do
       @client.column_types.should match(/([A-Z]+<>:)*[A-Z]+<>$/)
     end
+    
+    it "should get metadata types" do
+       metadata_types = @client.metadata_types
+       metadata_types.length.should == 1
+       metadata_types["T".to_sym][0].should match(/sample/)
+    end
 
-    describe("(with index specified in find)") do
-      before(:each) do 
+    it "should set wide context" do
+       @client.wide_context = 3
+    end
+
+    describe("(parameters setting)") do
+      before(:each) do
         @result = @client.find("marny", :index => 1)
       end
 
@@ -201,6 +220,25 @@ describe Poliqarp::Client do
 
       it "should not be nil" do
         @result.should_not == nil
+      end
+
+    end
+
+    describe("(setting options)") do
+      it "should set query's flags" do
+        @client.query_flags={:left_match => true, :right_match => false, :right_context => 1}
+      end
+
+      it "should set rewrite flags" do
+        @client.rewrite={:left_context => true, :right_context => false}
+      end
+
+      it "should set random sample's flags" do
+        @client.random_sample = true
+      end
+
+      it "should allow to set disambiguity" do
+        @client.disamb = 1
       end
 
     end
