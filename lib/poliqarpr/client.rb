@@ -6,6 +6,7 @@ module Poliqarp
   # This class is the implementation of the Poliqarp server client. 
   class Client
     GROUPS = [:left_context, :left_match, :right_match, :right_context]
+    QUERY_FLAGS = [:query_case_sensitive, :query_whole_words, :metadata_case_sensitive, :metadata_whole_words]
 
     # If debug is turned on, the communication between server and client 
     # is logged to standard output.
@@ -90,7 +91,7 @@ module Poliqarp
     # matched segment(s).
     def wide_context=(value)
       if correct_context_value?(value)
-        result = talk("SET-OPTION right-context-width #{value}")
+        result = talk("SET-OPTION wide-context-width #{value}")
         @right_context = value if result =~ /^R OK/
       else
         raise "Invalid argument: #{value}. It must be fixnum greater than 0."
@@ -104,7 +105,7 @@ module Poliqarp
     # matched segment(s).
     def right_context=(value)
       if correct_context_value?(value)
-        result = talk("SET-OPTION wide-context-width #{value}")
+        result = talk("SET-OPTION right-context-width #{value}")
         @right_context = value if result =~ /^R OK/
       else
         raise "Invalid argument: #{value}. It must be fixnum greater than 0."
@@ -126,7 +127,7 @@ module Poliqarp
     #
     # You can pass :all to turn on flags for all groups
     def tags=(options={})
-      options = set_all_flags if options == :all
+      options = set_all_flags(GROUP) if options == :all
       @tag_flags = options
       flags = ""
       GROUPS.each do |flag|
@@ -150,7 +151,7 @@ module Poliqarp
     #
     # You can pass :all to turn on flags for all groups
     def lemmata=(options={})
-      options = set_all_flags if options == :all
+      options = set_all_flags(GROUP) if options == :all
       @lemmata_flags = options
       flags = ""
       GROUPS.each do |flag|
@@ -181,7 +182,8 @@ module Poliqarp
 
     # <b>DEPRECATED:</b> Please use <tt>get_version</tt> instead.
     # Returns server version
-    def version 
+    def version
+      warn "[DEPRECATION] `version` is deprecated.  Please use `get_version` instead."
       ret = talk("VERSION")
       @version = convert_version(ret.sub(/ .*/, ''))
       return ret
@@ -206,6 +208,7 @@ module Poliqarp
     # * +:tags+ the number of different grammar tags (each combination
     #   of atomic tags is treated as different "tag")
     def stats
+      warn "[DEPRECATION] `stats` is deprecated.  Please use `get_stats` instead."
       stats = {}
       talk("CORPUS-STATS").split.each_with_index do |value, index|
         case index
@@ -394,6 +397,8 @@ module Poliqarp
     end
 
     # Creates alias to attribute(s)
+    # +name+ stands for the name of new alias
+    # +value+ is the existing counterpart
     def create_alias(name, value)
       talk("CREATE-ALIAS #{name} #{value}")
     end
@@ -424,30 +429,29 @@ module Poliqarp
     end
 
     # Retrieves status of active job (query)
-    def get_job_status
+    def get_job_status()
       if convert_version("1.3.7") <= @version
-        talk("GET-JOB-STATUS")
-      else
-        raise "Incompatible version: Function not available"
+        return talk("GET-JOB-STATUS") rescue "None job found."
       end
     end
 
-    # Sets the query's flags. There are four groups of segments
+    # Sets query's flags. There are four groups of options
     # which the flags apply for:
-    # * +left_context+
-    # * +left_match+
-    # * +right_match+
-    # * +right_context+
-    # TODO description
+    # * +query_case_sensitive+ (default 'true')
+    # * +query_whole_words+ (default 'false')
+    # * +metadata_case_sensitive+ (default 'false')
+    # * +metadata_whole_words+ (default 'true')
+    # This command allow to set query and metadata specific properties.
     # You can pass :all to turn on flags for all groups
+    # 
     # New in version 1.3.3.
     def query_flags=(options={})
       if convert_version("1.3.3") <= @version
-        options = set_all_flags if options == :all
-        @tag_flags = options
+        options = set_all_flags(QUERY_FLAGS) if options == :all
+        #@tag_flags = options
         flags = ""
-        GROUPS.each do |flag|
-          flags << (options[flag] ? "1" : "0")
+        QUERY_FLAGS.each do |flag|
+          flags << (options[flag] == true ? "1" : QUERY_DEFAULT_FLAGS[flag])
         end
         talk("SET-OPTION query-flags #{flags}")
       else
@@ -455,9 +459,29 @@ module Poliqarp
       end
     end
 
-    # TODO retrieve-id
-    def retrieve_id
-      raise "Not implemented"
+    # Sets the retrieve ids' flags. There are four groups of segments
+    # which the flags apply for:
+    # * +left_context+
+    # * +left_match+
+    # * +right_match+
+    # * +right_context+
+    #
+    # This setting causese identify retrieval of mentioned segments.
+    # You can pass :all to turn on flags for all groups
+    #
+    # New in version 1.3.8.
+    def retrieve_ids=(options={})
+      if convert_version("1.3.8") <= @version
+        options = set_all_flags(GROUP) if options == :all
+        @tag_flags = options
+        flags = ""
+        GROUPS.each do |flag|
+          flags << (options[flag] ? "1" : "0")
+        end
+        talk("SET-OPTION retrieve-ids #{flags}")
+      else
+        raise "Incompatible version: Function not available"
+      end
     end
 
     # Sets the rewrite flags. There are four groups of segments
@@ -467,11 +491,12 @@ module Poliqarp
     # * +right_match+
     # * +right_context+
     #
-    # You can pass :all to turn on flags for all groups
+    # You can pass :all to turn on flags for all groups.
+    #
     # New in version 1.3.3.
     def rewrite=(options={})
       if convert_version("1.3.3") <= @version
-        options = set_all_flags if options == :all
+        options = set_all_flags(GROUP) if options == :all
         @tag_flags = options
         flags = ""
         GROUPS.each do |flag|
@@ -485,6 +510,8 @@ module Poliqarp
 
     # Sets the random sample option, which forces server to generate
     # random response for the query.
+    # * +value+ should be of logical or binary value
+    #
     # New in version 1.3.7.
     def random_sample=(value)
       if convert_version("1.3.7") <= @version
@@ -498,8 +525,21 @@ module Poliqarp
       end
     end
 
+    # Sets locale specific options.
+    # * +name+ is the kind of the locale parameter
+    # * +value+ stands for value to be set
+    def set_locale(name, value)
+      talk('SET-LOCALE ' + name + '=' +value)
+    end
+
+    # Sets shift of the buffer
+    def buffer_shift(number)
+      raise "Not implemented"
+    end
 
 protected
+    QUERY_DEFAULT_FLAGS = {:query_case_sensitive => "1", :query_whole_words => "0", :metadata_case_sensitive => "0", :metadata_whole_words => "1"}
+
     # Sends a message directly to the server
     # * +msg+ the message to send
     # * +mode+ if set to :sync, the method block untli the message
@@ -666,16 +706,16 @@ protected
 private 
     def do_wait(queue)
       loop {
-        status = talk("STATUS") rescue break
+        status = talk("GET-JOB-STATUS") rescue break
         puts "GET-JOB-STATUS: #{status}" if @debug
         sleep 0.3
       }
       queue.shift
     end
 
-    def set_all_flags
+    def set_all_flags(group)
       options = {}
-      GROUPS.each{|g| options[g] = true}
+      group.each{|g| options[g] = true}
       options
     end
     

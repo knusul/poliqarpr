@@ -209,6 +209,10 @@ describe Poliqarp::Client do
        @client.wide_context = 3
     end
 
+    it "should get job's empty status" do
+      @client.get_job_status().to_s.should match(/None.*/)
+    end
+
     describe("(parameters setting)") do
       before(:each) do
         @result = @client.find("marny", :index => 1)
@@ -226,7 +230,7 @@ describe Poliqarp::Client do
 
     describe("(setting options)") do
       it "should set query's flags" do
-        @client.query_flags={:left_match => true, :right_match => false, :right_context => 1}
+        @client.query_flags={:query_case_sensitive => true, :query_whole_words => false, :metadata_case_sensitive => true}
       end
 
       it "should set rewrite flags" do
@@ -239,6 +243,13 @@ describe Poliqarp::Client do
 
       it "should allow to set disambiguity" do
         @client.disamb = 1
+      end
+      it "should set flag for ids retrieving" do
+      @client.retrieve_ids={:left_context => 1, :left_match => 1, :right_match => 1, :right_context => 1}
+      end
+
+      it "should set locale" do
+        @client.set_locale('LC_ALL', 'POSIX')
       end
 
     end
