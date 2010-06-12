@@ -104,7 +104,7 @@ describe Poliqarp::Client do
     end
 
     it "should contain 'kot' in query result for [base=kot]" do
-      @client.find("[base=kot]")[0].to_s.should match(/\bkot\b/)
+      @client.find("[base=kot]")[0].to_s.should match(/\bkotem\./)
     end
 
     it "should allow to find 'jak [] nie" do
@@ -119,6 +119,7 @@ describe Poliqarp::Client do
       @client.find('"kot[au]"').size.should == 6
     end
 
+    # Bug in poliqarp
     it "should allow to find sets of chars2" do
       @client.find('[pos=subst]{6,} within s meta author=Kowalski').size.should_not == nil
     end
@@ -244,8 +245,10 @@ describe Poliqarp::Client do
       it "should allow to set disambiguity" do
         @client.disamb = 1
       end
+
       it "should set flag for ids retrieving" do
-      @client.retrieve_ids={:left_context => 1, :left_match => 1, :right_match => 1, :right_context => 1}
+        @client.retrieve_ids={:left_context => true, :left_match => false, :right_match => true, :right_context => true}
+        @client.find("kota")[0][0].short_context[0][0].segment_id.should_not == nil
       end
 
       it "should set locale" do
@@ -269,8 +272,10 @@ describe Poliqarp::Client do
       end
 
       it "should contain 'kot' in lemmatized query result for 'kotu'" do
-        @client.find("kotu")[0].short_context.flatten.
-          map{|e| e.lemmata[0].base_form}.join(" ").should match(/\bkot\b/)
+        res = @client.find("kotu")[0].short_context.flatten.
+          map{|e| e.lemmata[0].base_form}.join(" ")
+        puts 'res: '+res
+        res.should match(/\bkot\b/)
       end
 
     end

@@ -26,10 +26,13 @@ module Poliqarp
       @session_name = session_name
       @left_context = 5
       @right_context = 5
+      @wide_context = 5
       @debug = debug
       @buffer_size = 500000
       @connector = Connector.new(debug)
       @answer_queue = Queue.new
+      @retrieve_ids_flags = {}
+      @rewrite_flags = {}
       new_session
       get_version
     end
@@ -91,7 +94,7 @@ module Poliqarp
     # matched segment(s).
     def wide_context=(value)
       if correct_context_value?(value)
-        result = talk("SET-OPTION wide-context-width #{value}")
+        result = talk("SET-OPTION right-context-width #{value}")
         @right_context = value if result =~ /^R OK/
       else
         raise "Invalid argument: #{value}. It must be fixnum greater than 0."
@@ -105,8 +108,8 @@ module Poliqarp
     # matched segment(s).
     def right_context=(value)
       if correct_context_value?(value)
-        result = talk("SET-OPTION right-context-width #{value}")
-        @right_context = value if result =~ /^R OK/
+        result = talk("SET-OPTION wide-context-width #{value}")
+        @wide_context = value if result =~ /^R OK/
       else
         raise "Invalid argument: #{value}. It must be fixnum greater than 0."
       end
@@ -448,7 +451,7 @@ module Poliqarp
     def query_flags=(options={})
       if convert_version("1.3.3") <= @version
         options = set_all_flags(QUERY_FLAGS) if options == :all
-        #@tag_flags = options
+        @query_flags = options
         flags = ""
         QUERY_FLAGS.each do |flag|
           flags << (options[flag] == true ? "1" : QUERY_DEFAULT_FLAGS[flag])
@@ -473,7 +476,7 @@ module Poliqarp
     def retrieve_ids=(options={})
       if convert_version("1.3.8") <= @version
         options = set_all_flags(GROUP) if options == :all
-        @tag_flags = options
+        @retrieve_ids_flags = options
         flags = ""
         GROUPS.each do |flag|
           flags << (options[flag] ? "1" : "0")
@@ -497,7 +500,7 @@ module Poliqarp
     def rewrite=(options={})
       if convert_version("1.3.3") <= @version
         options = set_all_flags(GROUP) if options == :all
-        @tag_flags = options
+        @rewrite_flags = options
         flags = ""
         GROUPS.each do |flag|
           flags << (options[flag] ? "1" : "0")
@@ -600,11 +603,14 @@ protected
     # MAKE-QUERY and GET-RESULTS must be sent to the server before 
     # this method is called
     def fetch_result(index, query)
+      puts 'fetch_result 1'
       result = Excerpt.new(index, self, query)
       result << read_segments(:left_context)
+      puts 'fetch_result 2'
       result << read_segments(:left_match)
       # XXX
       #result << read_segments(:right_match)
+      puts 'fetch_result 3'
       result << read_segments(:right_context)
       result
     end
@@ -615,7 +621,8 @@ protected
       size.times do |segment_index|
         segment = Segment.new(read_word)
         segments << segment 
-        if @lemmata_flags[group] || @tag_flags[group]
+        if @lemmata_flags[group] || @tag_flags[group] ||  @retrieve_ids_flags[group] || @rewrite_flags[group]
+          puts 'lemmata_size read'
           lemmata_size = read_number()
           lemmata_size.times do |lemmata_index| 
             lemmata = Lemmata.new()
@@ -627,6 +634,17 @@ protected
             end
             segment.lemmata << lemmata
           end
+          #puts '@retrieve_ids_flags[group] '+@retrieve_ids_flags.to_s
+          if @retrieve_ids_flags[group]
+            ret = read_word
+            puts 'retrieve_ids_flags '+ret
+            segment.segment_id = ret
+            # TODO segment.ids << id
+          end
+
+          if @rewrite_flags[group]
+            # do nothing
+          end
         end
       end
       segments
@@ -634,6 +652,7 @@ protected
 
     # Reads number stored in the message received from the server.
     def read_number
+      puts 'Read number'
       @connector.read_message.match(/\d+/)[0].to_i
     end
 
