@@ -104,7 +104,7 @@ describe Poliqarp::Client do
     end
 
     it "should contain 'kot' in query result for [base=kot]" do
-      @client.find("[base=kot]")[0].to_s.should match(/\bkotem\./)
+      @client.find("[base=kot]")[0].to_s.should match(/\bkot\b/)
     end
 
     it "should allow to find 'jak [] nie" do

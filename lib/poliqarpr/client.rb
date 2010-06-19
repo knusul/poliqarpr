@@ -54,7 +54,7 @@ module Poliqarp
       close if @session
       @connector.open("localhost",port)
       @session_id = talk("MAKE-SESSION #{@session_name}").split[1]
-      puts("session id: #{@session_id}")
+      puts("session id: #{@session_id}") if @debug
       resize_buffer(@buffer_size)
       @session = true
       self.tags = {}
@@ -578,7 +578,9 @@ protected
 
       result = QueryResult.new(page_index, page_count,page_size,self,query)
 
-      sort_results(options)
+      if options[:sorting]
+        sort_results(options[:sorting])
+      end
 
       if answers_limit > 0
         talk("GET-RESULTS #{answer_offset} #{answer_offset + answers_limit - 1}") 
@@ -603,14 +605,11 @@ protected
     # MAKE-QUERY and GET-RESULTS must be sent to the server before 
     # this method is called
     def fetch_result(index, query)
-      puts 'fetch_result 1'
       result = Excerpt.new(index, self, query)
       result << read_segments(:left_context)
-      puts 'fetch_result 2'
       result << read_segments(:left_match)
       # XXX
       #result << read_segments(:right_match)
-      puts 'fetch_result 3'
       result << read_segments(:right_context)
       result
     end
@@ -622,7 +621,6 @@ protected
         segment = Segment.new(read_word)
         segments << segment 
         if @lemmata_flags[group] || @tag_flags[group] ||  @retrieve_ids_flags[group] || @rewrite_flags[group]
-          puts 'lemmata_size read'
           lemmata_size = read_number()
           lemmata_size.times do |lemmata_index| 
             lemmata = Lemmata.new()
@@ -634,14 +632,9 @@ protected
             end
             segment.lemmata << lemmata
           end
-          #puts '@retrieve_ids_flags[group] '+@retrieve_ids_flags.to_s
           if @retrieve_ids_flags[group]
-            ret = read_word
-            puts 'retrieve_ids_flags '+ret
-            segment.segment_id = ret
-            # TODO segment.ids << id
+            segment.segment_id = read_word.to_i
           end
-
           if @rewrite_flags[group]
             # do nothing
           end
@@ -652,7 +645,6 @@ protected
 
     # Reads number stored in the message received from the server.
     def read_number
-      puts 'Read number'
       @connector.read_message.match(/\d+/)[0].to_i
     end
 
@@ -703,23 +695,14 @@ protected
 
     # *Asynchronous* Sends the sorting command to the server and waits
     #  for operation completion
-    def sort_results(options)
+    def sort_results(sorting)
       @sort_answer_queue = Queue.new
-      sort_real_handler = lambda { |msg| @sort_answer_queue.push msg }
-      if options[:sorting]
-        if @debug
-          puts "SORT-RESULTS #{options[:sorting]}"
-        end
-        talk("SORT-RESULTS #{options[:sorting]}", :async, &sort_real_handler)
-      else
-        if @debug
-          puts "SORT-RESULTS #{SortingCriteria::A_FRONTE_LEFT_CONTEXT}"
-        end
-        talk("SORT-RESULTS #{SortingCriteria::A_FRONTE_LEFT_CONTEXT}", :async, &sort_real_handler)
-      end
+      sort_real_handler = lambda { |msg| @sort_answer_queue.push msg }      
+      puts "SORT-RESULTS #{sorting}" if @debug
+      talk("SORT-RESULTS #{sorting}", :async, &sort_real_handler)
       
       do_wait(@sort_answer_queue) if sort_real_handler.nil?
-      puts @sort_answer_queue.shift
+      puts @sort_answer_queue.shift if @debug
     end
 
 private 

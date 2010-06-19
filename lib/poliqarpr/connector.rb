@@ -27,12 +27,17 @@ module Poliqarp
       13 =>   "No corpus opened",
       14 =>   "Invalid job ID",
       15 =>   "A job is already in progress",
-      16 =>   "Incorrect query",
-      17 =>   "Invalid result range",
+      16 =>   "Incomplete or incorrect query",
+      17 =>   "No query to run",
       18 =>   "Incorrect session option",
       19 =>   "Invalid session option value",
-      20 =>   "Invalid sorting criteria",
-      25 =>   "No error"
+      20 =>   "Incorrect number of results",
+      21 =>   "Incorrect range/number of result",
+      22 =>   "Incorrect sorting criteria",
+      23 =>   "An attempt of sorting results of running query",
+      24 =>   "No results to sort",
+      25 =>   "No error",
+      26 =>   "Incorrect parameter's value"
     }
     ERRORS.default = "Unknown error"
 
@@ -43,7 +48,7 @@ module Poliqarp
       @message_queue = Queue.new
       @socket_mutex = Mutex.new
       @loop_mutex = Mutex.new
-      @debug = 1#debug
+      @debug = debug
       @extended_debug = 1
     end
 
@@ -110,7 +115,6 @@ private
       if ruby19?
         result.force_encoding(UTF8)
       end
-      #puts "RECEIVED RESULT: #{result}" if @debug
       msg = result[2..-2]
       if result =~ /^M/
         receive_async(msg)
