@@ -1,0 +1,3 @@
+1. Próba profilowania aplikacji przy pomocy rubyprof, oraz pprof.rb
+2. Drobna poprawa kodu, lib/poliqarpr/client.rb
+3. Dopisanie testów jednostkowych
