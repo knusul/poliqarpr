@@ -1,0 +1,22 @@
+Zmiany i rozszerzenia projektu Poliqarpr – Micha³ Lisok
+Wszystkie wprowadzone zmiany zosta³y odpowiednio udokumentowane w kodzie.
+lib/poliqarp/query_results.rb:
+•	Rozszerzenie mo¿liwoœci obs³ugi tablicy excerpts o d³ugoœæ
+•	Dodanie funkcji „empty”
+lib/poliqarp/connector.rb:
+•	Rozszerzenie definicji b³êdów i dodanie obs³ugi informacji o potencjalnych, ostatnio napotkanych b³êdach
+lib/poliqarp/client.rb:
+•	Dopasowanie wszystkich istniej¹cych wewnêtrznych wywo³añ funkcji „talk” do najnowszej wersji (1.3.9)
+•	Sprawdzanie zgodnoœci API z wersj¹ oferowan¹ przez serwer i ewentualny komunikat o b³êdzie
+•	Oznaczenie kilku funkcji flag¹ „deprecated” i zaimplementowanie ich odpowiedników
+•	Dodanie funkcji „suspend_session”, „resume_session”, “last_error”, “buffer_state”, “column_types”, “metadata_types”, „get_job_status”, “buffer_shift”
+•	Obs³uga aliasów (“create_alias”, “get_aliases”, “delete_alias”)
+•	Rozszerzenie mo¿liwoœci funkcji ustawiaj¹cych opcje (“notification_interval”, „disamb”)
+•	Dodanie nowych funkcji ustawiaj¹cych opcje („set_wide_context=”, „retrieve_ids=”, „rewrite=”, „random_sample=”, „query_flags=”, „set_locale”)
+•	Obs³uga kryteriów sortowania wyników 
+lib/poliqarp/segment.rb:
+•	Poszerzenie klasy o polê segment_id 
+lib/poliqarp/sorting_criteria.rb:
+•	Stworzenie tej¿e klasy jako zbioru mo¿liwych kryteriów sortowañ
+spec/client.rb:
+•	Testy do wszystkich dodanych funkcji i rozszerzonych funkcjonalnoœci
