@@ -428,7 +428,7 @@ module Poliqarp
 
     # Changes capacity of the buffer
     def resize_buffer(size)
-      talk("BUFFER-RESIZE #{size}")
+      talk("RESIZE-BUFFER #{size}")
     end
 
     # Retrieves status of active job (query)
@@ -614,6 +614,8 @@ protected
       result
     end
 
+    # Reads given context range retrieving additional information if proper
+    # options were previously set.
     def read_segments(group)
       size = read_number()
       segments = []
